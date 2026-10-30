@@ -326,3 +326,61 @@ h1,h2,h3,strong { font-family: "Nunito", sans-serif; }
 }
 .garden-life, .garden-sprout { display: none !important; }
 .weather-overlay span { opacity: .42; }
+.habit-edit-emoji {
+  width: 55px;
+  min-width: 55px;
+  padding: 8px;
+  border: 1px solid var(--border, #eadfdf);
+  border-radius: 10px;
+  background: white;
+  font-size: 18px;
+}
+
+.habit-edit-input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border, #eadfdf);
+  border-radius: 10px;
+  outline: none;
+  font: inherit;
+}
+
+.habit-edit-input:focus {
+  border-color: #d58ba5;
+  box-shadow: 0 0 0 2px rgba(213, 139, 165, 0.15);
+}
+/* Little Wins Garden: add these styles at the END of your existing style.css */
+.calendar-month-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
+.calendar-month-heading h3 { margin:0; text-align:center; }
+.month-calendar-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:8px; }
+.month-calendar-weekday { text-align:center; color:var(--muted,#777); font-size:.82rem; padding:8px 2px; }
+.month-calendar-day { min-height:76px; border:1px solid var(--border,#eadfe4); border-radius:12px; padding:8px; display:flex; flex-direction:column; gap:7px; background:rgba(255,255,255,.55); }
+.month-calendar-day > span { font-weight:700; }
+.month-calendar-day small { font-size:.72rem; color:var(--text,#555); }
+.month-calendar-day.outside-month { opacity:.35; }
+.month-calendar-day.has-wins { background:#e9f5e8; border-color:#c5e2c2; }
+.month-calendar-day.is-today { outline:2px solid var(--accent,#d88ca5); outline-offset:1px; }
+.month-report-heading { margin-top:28px; }
+.backup-card { display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap; }
+.backup-card h3 { display:flex; align-items:center; gap:8px; margin:0 0 8px; }
+.backup-card p { margin:0; max-width:620px; }
+.backup-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.backup-upload { display:inline-flex; align-items:center; justify-content:center; cursor:pointer; }
+.backup-upload input { display:none; }
+/* Extra theme palettes */
+.theme-ocean { --accent:#398caa; --accent-soft:#dceff4; --panel-bg:#f4fbfd; --page-bg:#eaf6f8; --text:#244653; --muted:#66818a; }
+.theme-ocean .panel,.theme-ocean .stat-card,.theme-ocean .dashboard-card { background-color:#f4fbfd; border-color:#c8e3e9; }
+.theme-ocean .primary-button,.theme-ocean .tab.active { background:#398caa; }
+.theme-midnight { --accent:#8d83c8; --accent-soft:#e8e4fa; --panel-bg:#29283e; --page-bg:#1d1c30; --text:#f2efff; --muted:#c1badc; }
+.theme-midnight .panel,.theme-midnight .stat-card,.theme-midnight .dashboard-card { background-color:#302e49; border-color:#514c70; color:#f2efff; }
+.theme-midnight .muted,.theme-midnight .dashboard-note,.theme-midnight .panel p { color:#c1badc; }
+.theme-midnight .primary-button,.theme-midnight .tab.active { background:#766bb5; }
+.theme-midnight .month-calendar-day { background:#393650; border-color:#514c70; color:#f2efff; }
+.theme-midnight .month-calendar-day.has-wins { background:#36544c; border-color:#527b70; }
+@media (max-width:600px) {
+  .month-calendar-grid { gap:4px; }
+  .month-calendar-day { min-height:54px; padding:5px; border-radius:8px; }
+  .month-calendar-day small { font-size:.62rem; }
+  .calendar-month-heading .secondary-button { padding:8px 10px; font-size:.78rem; }
+}

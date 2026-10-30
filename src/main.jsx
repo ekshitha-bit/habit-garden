@@ -67,6 +67,8 @@ const themeOptions = [
   { id: "lavender", label: "Lavender Dream", emoji: "🪻", description: "Dreamy purple and lilac" },
   { id: "mint", label: "Mint Meadow", emoji: "🌿", description: "Fresh mint and sage" },
   { id: "sunset", label: "Peach Sunset", emoji: "🌅", description: "Warm peach and golden hues" },
+  { id: "ocean", label: "Ocean Breeze", emoji: "🌊", description: "Calm blue and seafoam tones" },
+  { id: "midnight", label: "Starlit Night", emoji: "🌙", description: "Deep blue with soft lavender" },
 ];
 
 const badgesList = [
@@ -142,7 +144,7 @@ function readSavedState() {
       autoSeason: old.autoSeason !== false,
       seasonsVisited: Array.isArray(old.seasonsVisited) ? old.seasonsVisited : [],
       weather: ["sunny", "rainy", "autumn", "snowy", "rainbow"].includes(old.weather) ? old.weather : "sunny",
-      theme: ["rose", "lavender", "mint", "sunset"].includes(old.theme) ? old.theme : "rose",
+      theme: ["rose", "lavender", "mint", "sunset", "ocean", "midnight"].includes(old.theme) ? old.theme : "rose",
     };
   } catch (error) {
     console.error("Could not load garden save:", error);
@@ -165,9 +167,13 @@ function App() {
   const [activeTab, setActiveTab] = useState("garden");
   const [newHabit, setNewHabit] = useState("");
   const [newEmoji, setNewEmoji] = useState("🌱");
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [editEmoji, setEditEmoji] = useState("🌱");
   const [selectedId, setSelectedId] = useState(null);
   const [message, setMessage] = useState("");
   const [draggingId, setDraggingId] = useState(null);
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 
   const today = localDate();
   const season = saved.autoSeason ? getSeasonFromDate() : saved.season;
@@ -265,6 +271,37 @@ function App() {
       ...previous,
       habits: previous.habits.filter((habit) => habit.id !== id),
     }));
+  }
+
+  function startEditHabit(habit) {
+    setEditingId(habit.id);
+    setEditName(habit.name);
+    setEditEmoji(habit.emoji);
+  }
+
+  function saveEditHabit(id) {
+    if (!editName.trim()) {
+      setMessage("Please enter a habit name.");
+      return;
+    }
+
+    setSaved((previous) => ({
+      ...previous,
+      habits: previous.habits.map((habit) =>
+        habit.id === id
+          ? { ...habit, name: editName.trim(), emoji: editEmoji }
+          : habit
+      ),
+    }));
+
+    setEditingId(null);
+    setMessage("Your habit has been updated! 🌱");
+  }
+
+  function cancelEditHabit() {
+    setEditingId(null);
+    setEditName("");
+    setEditEmoji("🌱");
   }
 
   function buyItem(item) {
@@ -376,6 +413,62 @@ function App() {
   const weeklyPercent = weeklyPossible ? Math.round(weeklyTotal / weeklyPossible * 100) : 0;
   const bestDay = weekDays.reduce((best, day) => day.count > best.count ? day : best, weekDays[0]);
 
+  const monthYear = calendarMonth.getFullYear();
+  const monthIndex = calendarMonth.getMonth();
+  const monthLabel = calendarMonth.toLocaleDateString("en", { month: "long", year: "numeric" });
+  const monthStart = new Date(monthYear, monthIndex, 1);
+  const calendarStart = new Date(monthYear, monthIndex, 1 - monthStart.getDay());
+  const calendarDays = Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(calendarStart);
+    date.setDate(calendarStart.getDate() + index);
+    const key = localDate(date);
+    const count = saved.habits.filter((habit) => habit.done.includes(key)).length;
+    return { date, key, count, inMonth: date.getMonth() === monthIndex };
+  });
+  const monthPrefix = `${monthYear}-${String(monthIndex + 1).padStart(2, "0")}-`;
+  const monthCompletions = saved.habits.reduce((sum, habit) => sum + habit.done.filter((date) => date.startsWith(monthPrefix)).length, 0);
+  const monthActiveDays = new Set(saved.habits.flatMap((habit) => habit.done.filter((date) => date.startsWith(monthPrefix)))).size;
+  const monthPossible = saved.habits.length * new Date(monthYear, monthIndex + 1, 0).getDate();
+  const monthPercent = monthPossible ? Math.round(monthCompletions / monthPossible * 100) : 0;
+
+  function downloadBackup() {
+    const backup = { app: "Little Wins Garden", version: 1, exportedAt: new Date().toISOString(), data: saved };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `little-wins-garden-backup-${today}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setMessage("Your garden backup has been downloaded! 🌷");
+  }
+
+  async function restoreBackup(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      const data = parsed.data || parsed;
+      if (!data || !Array.isArray(data.habits) || !data.habits.every((habit) => habit && typeof habit.name === "string" && Array.isArray(habit.done))) {
+        throw new Error("This file doesn't look like a Little Wins Garden backup.");
+      }
+      const confirmed = window.confirm("Restore this backup? Your current garden data will be replaced.");
+      if (!confirmed) { event.target.value = ""; return; }
+      const clean = {
+        ...readSavedState(), ...data,
+        habits: data.habits.map((habit) => ({ ...habit, done: habit.done.filter((day) => typeof day === "string") })),
+        inventory: Array.isArray(data.inventory) ? data.inventory : [],
+        claimedQuests: Array.isArray(data.claimedQuests) ? data.claimedQuests : [],
+        seasonsVisited: Array.isArray(data.seasonsVisited) ? data.seasonsVisited : [],
+      };
+      setSaved(clean);
+      setMessage("Your garden backup has been restored! 🌱");
+    } catch (error) {
+      setMessage(error.message || "Could not restore that backup file.");
+    }
+    event.target.value = "";
+  }
+
   function moveDecoration(event, item) {
     const garden = event.currentTarget.closest(".garden-ground");
     if (!garden) return;
@@ -424,6 +517,7 @@ function App() {
         <Tab active={activeTab === "shop"} onClick={() => setActiveTab("shop")} icon={<ShoppingBag size={16} />} label="Flower Shop" />
         <Tab active={activeTab === "badges"} onClick={() => setActiveTab("badges")} icon={<Trophy size={16} />} label="Badges" />
         <Tab active={activeTab === "weekly"} onClick={() => setActiveTab("weekly")} icon={<BarChart3 size={16} />} label="Weekly Progress" />
+        <Tab active={activeTab === "calendar"} onClick={() => setActiveTab("calendar")} icon={<CalendarDays size={16} />} label="Calendar & Reports" />
         <Tab active={activeTab === "seasons"} onClick={() => setActiveTab("seasons")} icon={<Sun size={16} />} label="Seasons & Friend" />
       </nav>
 
@@ -441,16 +535,65 @@ function App() {
               <div className="habit-list">
                 {saved.habits.map((habit) => {
                   const done = habit.done.includes(today);
+                  const isEditing = editingId === habit.id;
+
                   return (
                     <div className={`habit-row ${done ? "is-done" : ""}`} key={habit.id}>
-                      <span className="habit-emoji">{habit.emoji}</span>
-                      <button className="habit-toggle" onClick={() => updateHabit(habit.id)} aria-label={done ? "Mark incomplete" : "Complete habit"}>{done && <Check size={14} />}</button>
-                      <button className="habit-name" onClick={() => updateHabit(habit.id)}><span>{habit.name}</span><small>{done ? "Little win planted!" : "One tiny step is enough"}</small></button>
-                      <button className="icon-button" onClick={() => deleteHabit(habit.id)} aria-label="Delete habit"><Trash2 size={15} /></button>
+                      {isEditing ? (
+                        <>
+                          <select
+                            className="habit-edit-emoji"
+                            value={editEmoji}
+                            onChange={(event) => setEditEmoji(event.target.value)}
+                            aria-label="Choose habit emoji"
+                          >
+                            {["🌱", "💧", "📚", "🧘", "🚶", "🍎", "🧹", "🎨", "💤", "🧴"].map((emoji) => (
+                              <option key={emoji} value={emoji}>{emoji}</option>
+                            ))}
+                          </select>
+                          <input
+                            className="habit-edit-input"
+                            value={editName}
+                            onChange={(event) => setEditName(event.target.value)}
+                            maxLength={60}
+                            autoFocus
+                            aria-label="Edit habit name"
+                          />
+                          <button className="icon-button" onClick={() => saveEditHabit(habit.id)} aria-label="Save habit" title="Save">
+                            <Check size={16} />
+                          </button>
+                          <button className="icon-button" onClick={cancelEditHabit} aria-label="Cancel editing" title="Cancel">
+                            <X size={16} />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="habit-emoji">{habit.emoji}</span>
+                          <button className="habit-toggle" onClick={() => updateHabit(habit.id)} aria-label={done ? "Mark incomplete" : "Complete habit"}>
+                            {done && <Check size={14} />}
+                          </button>
+                          <button className="habit-name" onClick={() => updateHabit(habit.id)}>
+                            <span>{habit.name}</span>
+                            <small>{done ? "Little win planted!" : "One tiny step is enough"}</small>
+                          </button>
+                          <button className="icon-button" onClick={() => startEditHabit(habit)} aria-label="Edit habit" title="Edit habit">
+                            <Settings size={15} />
+                          </button>
+                          <button className="icon-button" onClick={() => deleteHabit(habit.id)} aria-label="Delete habit" title="Delete habit">
+                            <Trash2 size={15} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   );
                 })}
-                {saved.habits.length === 0 && <div className="empty-state"><span>🌱</span><strong>Your garden has room to grow</strong><p>Add your first habit below.</p></div>}
+                {saved.habits.length === 0 && (
+                  <div className="empty-state">
+                    <span>🌱</span>
+                    <strong>Your garden has room to grow</strong>
+                    <p>Add your first habit below.</p>
+                  </div>
+                )}
               </div>
               <form className="add-habit-form" onSubmit={addHabit}>
                 <select aria-label="Habit emoji" value={newEmoji} onChange={(event) => setNewEmoji(event.target.value)}>
@@ -616,6 +759,31 @@ function App() {
           <div className="dashboard-card"><div className="dashboard-card-heading"><div><h3><CalendarDays size={18} /> Your 7-day calendar</h3><p>More filled squares mean more habits completed.</p></div></div><div className="heatmap-legend"><span>Less</span><i className="heat-level-0" /><i className="heat-level-1" /><i className="heat-level-2" /><i className="heat-level-3" /><span>More</span></div><div className="heatmap-grid">{weekDays.map((day) => <div className="heatmap-day" key={day.key}><span className="heatmap-weekday">{day.day}</span><div className={`heat-cell ${day.count === 0 ? "heat-level-0" : day.percent < 50 ? "heat-level-1" : day.percent < 100 ? "heat-level-2" : "heat-level-3"}`} title={`${day.count} habits completed on ${day.key}`}>{day.count}</div><small>{day.date}</small></div>)}</div><div className="heatmap-summary"><span>🌿</span><p><strong>{activeDays} active days so far.</strong><br />This counts all dates in your saved habit history.</p></div></div>
           <div className="dashboard-card"><div className="dashboard-card-heading"><div><h3><Leaf size={18} /> Habit garden report</h3><p>How often each habit was completed in the last seven days.</p></div></div>{saved.habits.length ? saved.habits.map((habit) => { const count = weekDays.filter((day) => habit.done.includes(day.key)).length; return <div className="habit-week-row" key={habit.id}><span className="habit-week-emoji">{habit.emoji}</span><div className="habit-week-info"><strong>{habit.name}</strong><div className="progress-track"><span style={{ width: `${count / 7 * 100}%` }} /></div></div><span className="habit-week-count">{count}/7</span></div>; }) : <p className="muted">Add a habit to begin your weekly report.</p>}</div>
           <p className="dashboard-note">Your chart uses your saved completion dates. Weekly percentages are based on your current habit list.</p>
+        </section>
+      )}
+
+      {activeTab === "calendar" && (
+        <section className="panel page-panel">
+          <div className="section-heading"><div><p className="eyebrow"><CalendarDays size={14} /> YOUR MONTHLY JOURNEY</p><h2>Habit calendar</h2><p className="muted">Look back at every little win, one day at a time.</p></div><div className="weekly-flower">📅</div></div>
+          <div className="dashboard-card">
+            <div className="calendar-month-heading"><button className="secondary-button" onClick={() => setCalendarMonth(new Date(monthYear, monthIndex - 1, 1))}>‹ Previous</button><h3>{monthLabel}</h3><button className="secondary-button" onClick={() => setCalendarMonth(new Date(monthYear, monthIndex + 1, 1))}>Next ›</button></div>
+            <div className="month-calendar-grid">
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <strong className="month-calendar-weekday" key={day}>{day}</strong>)}
+              {calendarDays.map((day) => <div key={day.key} className={`month-calendar-day ${!day.inMonth ? "outside-month" : ""} ${day.key === today ? "is-today" : ""} ${day.count ? "has-wins" : ""}`} title={`${day.count} habits completed on ${day.key}`}><span>{day.date.getDate()}</span>{day.count > 0 && <small>{day.count} 🌱</small>}</div>)}
+            </div>
+            <p className="dashboard-note">Days with little wins are marked with a sprout count. Dates are based on your saved habit history.</p>
+          </div>
+          <div className="section-heading month-report-heading"><div><p className="eyebrow"><BarChart3 size={14} /> MONTHLY SUMMARY</p><h2>{monthLabel} report</h2><p className="muted">A gentle snapshot of your progress this month.</p></div></div>
+          <div className="weekly-stats">
+            <WeeklyStat emoji="🌱" value={monthCompletions} label="Habit check-ins" />
+            <WeeklyStat emoji="🌼" value={`${monthPercent}%`} label="Completion rate" />
+            <WeeklyStat emoji="☀️" value={monthActiveDays} label="Active days" />
+          </div>
+          <div className="dashboard-card"><div className="dashboard-card-heading"><div><h3><Leaf size={18} /> Your habits this month</h3><p>Number of days each habit was completed during {monthLabel}.</p></div></div>
+            {saved.habits.length ? saved.habits.map((habit) => { const count = habit.done.filter((date) => date.startsWith(monthPrefix)).length; const percent = Math.round(count / new Date(monthYear, monthIndex + 1, 0).getDate() * 100); return <div className="habit-week-row" key={habit.id}><span className="habit-week-emoji">{habit.emoji}</span><div className="habit-week-info"><strong>{habit.name}</strong><div className="progress-track"><span style={{ width: `${percent}%` }} /></div></div><span className="habit-week-count">{count} days</span></div>; }) : <p className="muted">Add a habit to begin your monthly report.</p>}
+          </div>
+          <div className="dashboard-card backup-card"><div><h3><RotateCcw size={18} /> Backup & restore</h3><p>Save a copy of your garden or restore it on this browser. Keep your backup file somewhere safe.</p></div><div className="backup-actions"><button className="primary-button" onClick={downloadBackup}>Download backup</button><label className="secondary-button backup-upload">Restore backup<input type="file" accept="application/json,.json" onChange={restoreBackup} /></label></div></div>
+          <p className="dashboard-note">Your garden is still saved in this browser automatically. A backup file is useful if you change browsers or devices.</p>
         </section>
       )}
 
