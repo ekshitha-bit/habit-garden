@@ -639,7 +639,10 @@ function App() {
                     const growth = habit.done.length;
                     if (growth === 0) return null;
                     const plantEmoji = growth >= 7 ? "🌻" : growth >= 4 ? "🌷" : growth >= 2 ? "🌿" : "🌱";
-                    const left = [24, 38, 52, 66, 78][index % 5];
+                    const totalPlants = saved.habits.length;
+                    const left = totalPlants === 1
+                    ? 50
+                    : 12 + (index / (totalPlants - 1)) * 76;
                     const top = [82, 86, 80, 87, 83][index % 5];
                     return <span
                       className={`habit-grown-plant plant-stage-${growth >= 7 ? "bloom" : growth >= 4 ? "flower" : growth >= 2 ? "leafy" : "sprout"}`}
